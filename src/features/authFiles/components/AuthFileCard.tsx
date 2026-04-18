@@ -7,6 +7,7 @@ import {
   IconDownload,
   IconInfo,
   IconModelCluster,
+  IconRefreshCw,
   IconSettings,
   IconTrash2,
 } from '@/components/ui/icons';
@@ -29,6 +30,7 @@ import {
   type ResolvedTheme,
 } from '@/features/authFiles/constants';
 import type { AuthFileStatusBarData } from '@/features/authFiles/hooks/useAuthFilesStatusBarCache';
+import { useAuthFileQuota } from '@/features/authFiles/hooks/useAuthFileQuota';
 import { AuthFileQuotaSection } from '@/features/authFiles/components/AuthFileQuotaSection';
 import styles from '@/pages/AuthFilesPage.module.scss';
 
@@ -92,6 +94,12 @@ export function AuthFileCard(props: AuthFileCardProps) {
     quotaFilterType && resolveQuotaType(file) === quotaFilterType ? quotaFilterType : null;
 
   const showQuotaLayout = Boolean(quotaType) && !isRuntimeOnly && !compact;
+
+  const { quotaStatus, canRefreshQuota, refreshQuotaForFile, config } = useAuthFileQuota(
+    file,
+    quotaType,
+    disableControls
+  );
 
   const providerCardClass =
     quotaType === 'antigravity'
@@ -309,6 +317,19 @@ export function AuthFileCard(props: AuthFileCardProps) {
                 </div>
               )}
             </div>
+            {showQuotaLayout && quotaStatus !== 'idle' && quotaStatus !== 'loading' && config && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void refreshQuotaForFile()}
+                className={styles.iconButton}
+                title={t(`${config.i18nPrefix}.refresh_button`)}
+                aria-label={t(`${config.i18nPrefix}.refresh_button`)}
+                disabled={!canRefreshQuota || quotaStatus === 'loading'}
+              >
+                <IconRefreshCw className={styles.actionIcon} size={16} />
+              </Button>
+            )}
             {!isRuntimeOnly && (
               <div className={styles.statusToggle}>
                 <span className={styles.statusToggleLabel}>
