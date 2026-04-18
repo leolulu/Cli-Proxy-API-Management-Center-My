@@ -22,6 +22,7 @@ export const BACKUP_LOCALSTORAGE_KEYS = [
 export const AUTO_BACKUP_INTERVALS: { value: AutoBackupInterval; ms: number }[] = [
   { value: '5m', ms: 5 * 60 * 1000 },
   { value: '30m', ms: 30 * 60 * 1000 },
+  { value: '1h', ms: 60 * 60 * 1000 },
   { value: '24h', ms: 24 * 60 * 60 * 1000 },
   { value: '3d', ms: 3 * 24 * 60 * 60 * 1000 },
 ];

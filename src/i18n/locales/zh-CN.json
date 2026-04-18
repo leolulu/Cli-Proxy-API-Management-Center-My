@@ -1720,6 +1720,7 @@
     "auto_scope_label": "自动备份范围",
     "interval_5m": "每 5 分钟",
     "interval_30m": "每 30 分钟",
+    "interval_1h": "每 1 小时",
     "interval_24h": "每天",
     "interval_3d": "每 3 天",
     "last_backup": "上次备份",

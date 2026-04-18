@@ -32,6 +32,7 @@ export function ManualBackupCard() {
   const intervalOptions = [
     { value: '5m', label: t('backup.interval_5m') },
     { value: '30m', label: t('backup.interval_30m') },
+    { value: '1h', label: t('backup.interval_1h') },
     { value: '24h', label: t('backup.interval_24h') },
     { value: '3d', label: t('backup.interval_3d') },
   ] as const;

@@ -46,4 +46,4 @@ export interface WebdavConnectionConfig {
 
 export type ConnectionStatus = 'idle' | 'testing' | 'connected' | 'error';
 
-export type AutoBackupInterval = '5m' | '30m' | '24h' | '3d';
+export type AutoBackupInterval = '5m' | '30m' | '1h' | '24h' | '3d';
