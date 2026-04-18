@@ -45,8 +45,15 @@ jobs:
           ls -lh management.html
 
       - name: Generate release notes
+        env:
+          RELEASE_AUTHOR_EMAIL: ${{ vars.RELEASE_AUTHOR_EMAIL }}
         run: |
           set -euo pipefail
+          if [ -z "${RELEASE_AUTHOR_EMAIL:-}" ]; then
+            echo "RELEASE_AUTHOR_EMAIL GitHub Actions variable is required." >&2
+            exit 1
+          fi
+
           current_tag="${GITHUB_REF_NAME}"
           previous_tag="$(git tag --list 'v*' --sort=-v:refname | grep -v "^${current_tag}$" | head -n 1 || true)"
           if [ -n "${previous_tag}" ]; then
@@ -56,7 +63,11 @@ jobs:
           fi
 
           : > release-notes.md
-          git log --pretty=format:"- %h %s" "${range}" >> release-notes.md
+          git log --no-merges --author="${RELEASE_AUTHOR_EMAIL}" --pretty=format:"- %h %s" "${range}" >> release-notes.md
+
+          if [ ! -s release-notes.md ]; then
+            echo "- No personal commits in this release." > release-notes.md
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
