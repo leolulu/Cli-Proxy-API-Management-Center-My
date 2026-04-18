@@ -59,7 +59,6 @@ export function useAuthFileQuota(
     if (!quotaType) return;
     if (disableControls) return;
     if (isRuntimeOnlyAuthFile(file)) return;
-    if (file.disabled) return;
     if (quota?.status === 'loading') return;
 
     const config = getQuotaConfig(quotaType) as unknown as {
@@ -101,7 +100,7 @@ export function useAuthFileQuota(
     : null;
 
   const quotaStatus = quota?.status ?? 'idle';
-  const canRefreshQuota = quotaType ? !disableControls && !file.disabled : false;
+  const canRefreshQuota = quotaType ? !disableControls : false;
   const quotaErrorMessage = resolveQuotaErrorMessage(
     t,
     quota?.errorStatus,
