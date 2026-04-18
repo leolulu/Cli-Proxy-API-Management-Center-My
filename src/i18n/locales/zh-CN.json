@@ -1639,6 +1639,8 @@
       "header_count": "请求数",
       "header_input": "输入",
       "header_output": "输出",
+      "header_reasoning": "思考",
+      "header_cached": "缓存",
       "header_total": "总 Token",
       "header_latency": "耗时",
       "header_time": "时间",

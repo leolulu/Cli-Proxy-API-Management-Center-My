@@ -46,6 +46,8 @@ interface LogEntry {
   failed: boolean;
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens: number;
+  cachedTokens: number;
   totalTokens: number;
   authIndex: string;
 }
@@ -268,6 +270,11 @@ export function RequestLogs({ data, loading: parentLoading, providerMap, provide
           const source = detail.source || 'unknown';
           const { masked } = getProviderDisplayParts(source, providerMap);
           const timestampMs = detail.timestamp ? new Date(detail.timestamp).getTime() : 0;
+          const cachedTokens = typeof detail.tokens.cached_tokens === 'number'
+            ? Math.max(detail.tokens.cached_tokens, 0)
+            : 'cache_tokens' in detail.tokens && typeof detail.tokens.cache_tokens === 'number'
+              ? Math.max(detail.tokens.cache_tokens, 0)
+              : 0;
           // 使用与请求事件明细相同的 resolveSourceDisplay 解析来源和类型
           let normalizedSource = normalizeCache.get(source);
           if (normalizedSource === undefined) {
@@ -295,6 +302,8 @@ export function RequestLogs({ data, loading: parentLoading, providerMap, provide
             failed: detail.failed,
             inputTokens: detail.tokens.input_tokens || 0,
             outputTokens: detail.tokens.output_tokens || 0,
+            reasoningTokens: detail.tokens.reasoning_tokens || 0,
+            cachedTokens,
             totalTokens: detail.tokens.total_tokens || 0,
             authIndex: detail.auth_index || '',
           });
@@ -479,6 +488,8 @@ export function RequestLogs({ data, loading: parentLoading, providerMap, provide
         <td>{formatLatencySeconds(entry.latencyMs)}</td>
         <td>{formatNumber(entry.inputTokens)}</td>
         <td>{formatNumber(entry.outputTokens)}</td>
+        <td>{formatNumber(entry.reasoningTokens)}</td>
+        <td>{formatNumber(entry.cachedTokens)}</td>
         <td>{formatNumber(entry.totalTokens)}</td>
         <td>{formatTimestamp(entry.timestamp)}</td>
         <td>
@@ -621,6 +632,8 @@ export function RequestLogs({ data, loading: parentLoading, providerMap, provide
                       <th>{t('monitor.logs.header_latency')}</th>
                       <th>{t('monitor.logs.header_input')}</th>
                       <th>{t('monitor.logs.header_output')}</th>
+                      <th>{t('monitor.logs.header_reasoning')}</th>
+                      <th>{t('monitor.logs.header_cached')}</th>
                       <th>{t('monitor.logs.header_total')}</th>
                       <th>{t('monitor.logs.header_time')}</th>
                       <th>{t('monitor.logs.header_actions')}</th>
