@@ -19,6 +19,7 @@ interface ModalProps {
   width?: number | string;
   className?: string;
   closeDisabled?: boolean;
+  showCloseButton?: boolean;
 }
 
 const CLOSE_ANIMATION_DURATION = 350;
@@ -124,6 +125,7 @@ export function Modal({
   width = 520,
   className,
   closeDisabled = false,
+  showCloseButton = true,
   children,
 }: PropsWithChildren<ModalProps>) {
   const { t } = useTranslation();
@@ -283,16 +285,18 @@ export function Modal({
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
       >
-        <button
-          ref={closeButtonRef}
-          type="button"
-          className="modal-close-floating"
-          onClick={closeDisabled ? undefined : handleClose}
-          aria-label={t('common.close')}
-          disabled={closeDisabled}
-        >
-          <IconX size={20} />
-        </button>
+        {showCloseButton && (
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="modal-close-floating"
+            onClick={closeDisabled ? undefined : handleClose}
+            aria-label={t('common.close')}
+            disabled={closeDisabled}
+          >
+            <IconX size={20} />
+          </button>
+        )}
         <div className="modal-header">
           <div className="modal-title" id={title ? titleId : undefined}>
             {title}

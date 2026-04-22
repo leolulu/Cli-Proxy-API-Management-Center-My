@@ -35,6 +35,7 @@ import {
 import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { LANGUAGE_LABEL_KEYS, LANGUAGE_ORDER } from '@/utils/constants';
 import { isSupportedLanguage } from '@/utils/language';
+import { ShellRestoreReminder } from '@/features/webdavBackup/components/ShellRestoreReminder';
 import { useAutoBackup } from '@/features/webdavBackup/hooks/useAutoBackup';
 import type { Theme } from '@/types';
 
@@ -749,6 +750,8 @@ export function MainLayout() {
           </main>
         </div>
       </div>
+
+      <ShellRestoreReminder />
     </div>
   );
 }

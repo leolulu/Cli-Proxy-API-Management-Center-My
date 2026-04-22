@@ -1,3 +1,4 @@
+import type { WebdavFileInfo } from './types';
 import { BACKUP_FILE_PREFIX, BACKUP_FILE_EXT, BACKUP_ENCRYPTION_SALT } from './constants';
 
 /**
@@ -24,6 +25,17 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * 选择体积最大的备份文件；体积相同则保持当前顺序
+ */
+export function pickLargestBackupCandidate(files: WebdavFileInfo[]): WebdavFileInfo | null {
+  if (files.length === 0) return null;
+
+  return files.reduce((largest, file) => {
+    return file.contentLength > largest.contentLength ? file : largest;
+  }, files[0]);
 }
 
 // ---- 跨设备加密（固定 salt，不绑定设备） ----
@@ -90,8 +102,8 @@ export function decryptFromBackup(payload: string): string {
  */
 export function normalizeDavPath(path: string): string {
   let p = path.trim();
-  if (!p.startsWith('/')) p = '/' + p;
-  if (!p.endsWith('/')) p = p + '/';
+  if (!p.startsWith('/')) p = `/${p}`;
+  if (!p.endsWith('/')) p = `${p}/`;
   return p;
 }
 

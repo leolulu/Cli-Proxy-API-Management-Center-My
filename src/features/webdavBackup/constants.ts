@@ -1,6 +1,12 @@
 import type { AutoBackupInterval } from './types';
 
 export const WEBDAV_STORE_KEY = 'cli-proxy-webdav';
+export const WEBDAV_RESTORE_RECOMMENDATION_PENDING_SESSION_KEY =
+  'cli-proxy-webdav-restore-recommendation-pending';
+export const WEBDAV_RESTORE_RECOMMENDATION_INIT_SESSION_KEY =
+  'cli-proxy-webdav-restore-recommendation-init';
+export const WEBDAV_RESTORE_RECOMMENDATION_AUTO_PROMPTED_SESSION_KEY =
+  'cli-proxy-webdav-restore-recommendation-auto-prompted';
 
 export const BACKUP_FILE_PREFIX = 'cpamc-backup-';
 export const BACKUP_FILE_EXT = '.json';

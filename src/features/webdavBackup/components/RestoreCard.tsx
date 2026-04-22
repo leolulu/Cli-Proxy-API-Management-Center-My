@@ -5,10 +5,19 @@ import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useNotificationStore } from '@/stores';
+import {
+  buildConnectionScope,
+  clearRestoreRecommendationPending,
+  ensureRestoreRecommendationPending,
+  hasRestoreRecommendationAutoPrompted,
+  isRestoreRecommendationPending,
+  markRestoreRecommendationAutoPrompted,
+} from '../restoreRecommendation';
 import { useWebdavStore } from '../store/useWebdavStore';
 import { useBackupActions } from '../hooks/useBackupActions';
-import { formatFileSize } from '../utils';
+import { formatFileSize, pickLargestBackupCandidate } from '../utils';
 import type { WebdavFileInfo, BackupScope } from '../types';
+import { RestoreRecommendationModal } from './RestoreRecommendationModal';
 import { RestoreModal } from './RestoreModal';
 
 export function RestoreCard() {
@@ -20,39 +29,199 @@ export function RestoreCard() {
   const isRestoring = useWebdavStore((s) => s.isRestoring);
   const isLoadingHistory = useWebdavStore((s) => s.isLoadingHistory);
   const serverUrl = useWebdavStore((s) => s.connection.serverUrl);
+  const username = useWebdavStore((s) => s.connection.username);
+  const basePath = useWebdavStore((s) => s.connection.basePath);
   const lastBackupTime = useWebdavStore((s) => s.lastBackupTime);
 
   const [files, setFiles] = useState<WebdavFileInfo[]>([]);
   const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [recommendedFile, setRecommendedFile] = useState<WebdavFileInfo | null>(null);
+  const [isRecommendationOpen, setIsRecommendationOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const reopenRecommendationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reopenRecommendationOnRestoreCloseRef = useRef(false);
+  const skipInitialLastBackupRefreshRef = useRef(lastBackupTime);
 
-  const refresh = useCallback(async () => {
-    if (!serverUrl) {
-      setFiles([]);
+  const connectionScope = serverUrl
+    ? buildConnectionScope(serverUrl, basePath, username)
+    : '';
+  const previousConnectionScopeRef = useRef(connectionScope);
+
+  const clearPendingRecommendation = useCallback(() => {
+    clearRestoreRecommendationPending(connectionScope);
+  }, [connectionScope]);
+
+  const openRecommendation = useCallback((candidate: WebdavFileInfo) => {
+    setRecommendedFile(candidate);
+    setIsRecommendationOpen(true);
+  }, []);
+
+  const scheduleRecommendationReopen = useCallback(() => {
+    if (!recommendedFile || !isRestoreRecommendationPending(connectionScope)) {
       return;
     }
-    const result = await loadHistory();
-    setFiles(result);
-  }, [serverUrl, loadHistory]);
 
-  // 初始加载 + 备份成功后自动刷新列表
+    if (reopenRecommendationTimerRef.current !== null) {
+      window.clearTimeout(reopenRecommendationTimerRef.current);
+    }
+
+    reopenRecommendationTimerRef.current = window.setTimeout(() => {
+      setRecommendedFile(recommendedFile);
+      setIsRecommendationOpen(true);
+      reopenRecommendationTimerRef.current = null;
+    }, 360);
+  }, [connectionScope, recommendedFile]);
+
+  const refresh = useCallback(
+    async ({ allowRecommendation = true }: { allowRecommendation?: boolean } = {}) => {
+      if (!serverUrl) {
+        setFiles([]);
+        setRecommendedFile(null);
+        setIsRecommendationOpen(false);
+        return;
+      }
+
+      const requestScope = connectionScope;
+      const result = await loadHistory();
+
+      const currentConnection = useWebdavStore.getState().connection;
+      const currentScope = buildConnectionScope(
+        currentConnection.serverUrl,
+        currentConnection.basePath,
+        currentConnection.username,
+      );
+
+      if (currentScope !== requestScope) {
+        return;
+      }
+
+      setFiles(result);
+
+      if (
+        !allowRecommendation ||
+        hasRestoreRecommendationAutoPrompted(connectionScope) ||
+        !ensureRestoreRecommendationPending(connectionScope)
+      ) {
+        return;
+      }
+
+      const candidate = pickLargestBackupCandidate(result);
+      if (!candidate) {
+        return;
+      }
+
+      markRestoreRecommendationAutoPrompted(connectionScope);
+      openRecommendation(candidate);
+    },
+    [connectionScope, loadHistory, openRecommendation, serverUrl],
+  );
+
+  // 初始加载
   useEffect(() => {
-    refresh();
-  }, [refresh, lastBackupTime]);
+    const timer = window.setTimeout(() => {
+      void refresh({ allowRecommendation: true });
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [refresh]);
+
+  // 备份成功后自动刷新列表
+  useEffect(() => {
+    if (!lastBackupTime) {
+      skipInitialLastBackupRefreshRef.current = null;
+      return;
+    }
+
+    if (skipInitialLastBackupRefreshRef.current === lastBackupTime) {
+      skipInitialLastBackupRefreshRef.current = null;
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void refresh({ allowRecommendation: false });
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [lastBackupTime, refresh]);
+
+  useEffect(() => {
+    return () => {
+      if (reopenRecommendationTimerRef.current !== null) {
+        window.clearTimeout(reopenRecommendationTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (previousConnectionScopeRef.current === connectionScope) {
+      return;
+    }
+
+    previousConnectionScopeRef.current = connectionScope;
+
+    const timer = window.setTimeout(() => {
+      if (reopenRecommendationTimerRef.current !== null) {
+        window.clearTimeout(reopenRecommendationTimerRef.current);
+        reopenRecommendationTimerRef.current = null;
+      }
+
+      reopenRecommendationOnRestoreCloseRef.current = false;
+      setRestoreTarget(null);
+      setRestoreFile(null);
+      setRecommendedFile(null);
+      setIsRecommendationOpen(false);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [connectionScope]);
 
   const handleRestore = useCallback(
     async (scope: BackupScope) => {
+      let restoreSucceeded = false;
+      const shouldResumeRecommendation =
+        reopenRecommendationOnRestoreCloseRef.current && restoreTarget !== null && restoreFile === null;
+
       if (restoreFile) {
-        await restoreFromLocal(restoreFile, scope);
+        restoreSucceeded = await restoreFromLocal(restoreFile, scope);
         setRestoreFile(null);
       } else if (restoreTarget) {
-        await restore(restoreTarget, scope);
+        restoreSucceeded = await restore(restoreTarget, scope);
       }
+
+      if (restoreSucceeded) {
+        clearPendingRecommendation();
+        setRecommendedFile(null);
+        setIsRecommendationOpen(false);
+      } else if (shouldResumeRecommendation) {
+        scheduleRecommendationReopen();
+      }
+
+      reopenRecommendationOnRestoreCloseRef.current = false;
       setRestoreTarget(null);
     },
-    [restoreTarget, restoreFile, restore, restoreFromLocal],
+    [clearPendingRecommendation, restoreTarget, restoreFile, restore, restoreFromLocal, scheduleRecommendationReopen],
   );
+
+  const handleRecommendationClose = useCallback(() => {
+    setIsRecommendationOpen(false);
+  }, []);
+
+  const handleRecommendationSkip = useCallback(() => {
+    clearPendingRecommendation();
+    setIsRecommendationOpen(false);
+    setRecommendedFile(null);
+  }, [clearPendingRecommendation]);
+
+  const handleRecommendationRestore = useCallback(() => {
+    if (!recommendedFile) {
+      return;
+    }
+
+    reopenRecommendationOnRestoreCloseRef.current = true;
+    setIsRecommendationOpen(false);
+    setRestoreTarget(recommendedFile.displayName);
+  }, [recommendedFile]);
 
   const handleFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -71,7 +240,7 @@ export function RestoreCard() {
         variant: 'danger',
         onConfirm: async () => {
           await deleteRemote(filename);
-          await refresh();
+          await refresh({ allowRecommendation: true });
         },
       });
     },
@@ -84,7 +253,12 @@ export function RestoreCard() {
         title={t('backup.restore_card_title')}
         subtitle={t('backup.restore_card_subtitle')}
         extra={
-          <Button variant="ghost" size="sm" onClick={refresh} disabled={!serverUrl}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void refresh({ allowRecommendation: true })}
+            disabled={!serverUrl}
+          >
             {t('common.refresh')}
           </Button>
         }
@@ -208,12 +382,38 @@ export function RestoreCard() {
       <RestoreModal
         open={restoreTarget !== null || restoreFile !== null}
         onClose={() => {
+          const shouldResumeRecommendation =
+            reopenRecommendationOnRestoreCloseRef.current && restoreTarget !== null && restoreFile === null;
+
           setRestoreTarget(null);
           setRestoreFile(null);
+
+          if (shouldResumeRecommendation) {
+            scheduleRecommendationReopen();
+          }
+
+          reopenRecommendationOnRestoreCloseRef.current = false;
         }}
         onRestore={handleRestore}
         loading={isRestoring}
         filename={restoreFile?.name ?? restoreTarget ?? ''}
+      />
+
+      <RestoreRecommendationModal
+        open={isRecommendationOpen}
+        onClose={handleRecommendationClose}
+        onSkip={handleRecommendationSkip}
+        onConfirm={handleRecommendationRestore}
+        file={recommendedFile}
+        message={
+          recommendedFile
+            ? t('backup.restore_recommend_message', {
+                name: recommendedFile.displayName,
+                size: formatFileSize(recommendedFile.contentLength),
+              })
+            : ''
+        }
+        confirmText={t('backup.restore_recommend_action')}
       />
     </>
   );

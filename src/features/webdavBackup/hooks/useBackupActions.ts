@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNotificationStore, useAuthStore } from '@/stores';
 import { configApi, usageApi } from '@/services/api';
+import { listBackupHistorySilently } from '../backupHistory';
 import { webdavClient } from '../client/webdavClient';
 import { useWebdavStore } from '../store/useWebdavStore';
 import type { BackupPayload, BackupData, BackupScope, WebdavFileInfo } from '../types';
@@ -161,14 +162,7 @@ export function useBackupActions() {
 
     setIsLoadingHistory(true);
     try {
-      const files = await webdavClient.listDirectory(connection);
-      return files
-        .filter((f) => isBackupFile(f.displayName))
-        .sort((a, b) => {
-          const da = new Date(a.lastModified).getTime() || 0;
-          const db = new Date(b.lastModified).getTime() || 0;
-          return db - da;
-        });
+      return await listBackupHistorySilently(connection);
     } catch (err) {
       console.error('[WebDAV Backup] List failed:', err);
       const msg = err instanceof Error ? err.message : String(err);
@@ -216,7 +210,7 @@ export function useBackupActions() {
   );
 
   const restore = useCallback(
-    async (filename: string, scope: BackupScope) => {
+    async (filename: string, scope: BackupScope): Promise<boolean> => {
       const { connection, setIsRestoring } = useWebdavStore.getState();
       setIsRestoring(true);
       try {
@@ -225,15 +219,17 @@ export function useBackupActions() {
 
         if (payload.format !== 'cpamc-backup' || (payload.version !== 1 && payload.version !== 2)) {
           showNotification(t('backup.invalid_format'), 'error');
-          return;
+          return false;
         }
 
         await applyRestore(payload, scope);
         showNotification(t('backup.restore_success'), 'success');
+        return true;
       } catch (err) {
         console.error('[WebDAV Backup] Restore failed:', err);
         const msg = err instanceof Error ? err.message : String(err);
         showNotification(`${t('backup.restore_failed')}: ${msg}`, 'error');
+        return false;
       } finally {
         setIsRestoring(false);
       }
@@ -242,7 +238,7 @@ export function useBackupActions() {
   );
 
   const restoreFromLocal = useCallback(
-    async (file: File, scope: BackupScope) => {
+    async (file: File, scope: BackupScope): Promise<boolean> => {
       const { setIsRestoring } = useWebdavStore.getState();
       setIsRestoring(true);
       try {
@@ -251,15 +247,17 @@ export function useBackupActions() {
 
         if (payload.format !== 'cpamc-backup' || (payload.version !== 1 && payload.version !== 2)) {
           showNotification(t('backup.invalid_format'), 'error');
-          return;
+          return false;
         }
 
         await applyRestore(payload, scope);
         showNotification(t('backup.restore_success'), 'success');
+        return true;
       } catch (err) {
         console.error('[WebDAV Backup] Local restore failed:', err);
         const msg = err instanceof Error ? err.message : String(err);
         showNotification(`${t('backup.restore_failed')}: ${msg}`, 'error');
+        return false;
       } finally {
         setIsRestoring(false);
       }
