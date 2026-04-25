@@ -18,7 +18,11 @@ const MODEL_CATEGORIES = [
   { id: 'glm', label: 'GLM', patterns: [/glm/i, /chatglm/i] },
   { id: 'grok', label: 'Grok', patterns: [/grok/i] },
   { id: 'deepseek', label: 'DeepSeek', patterns: [/deepseek/i] },
-  { id: 'minimax', label: 'MiniMax', patterns: [/minimax/i, /abab/i] }
+  { id: 'minimax', label: 'MiniMax', patterns: [/minimax/i, /abab/i] },
+  { id: 'doubao', label: '豆包', patterns: [/doubao/i] },
+  { id: 'inclusionai', label: '阿里百灵', patterns: [/inclusionai/i] },
+  { id: 'mimo', label: '小米', patterns: [/mimo/i] },
+  { id: 'invalid', label: '搁置模型', patterns: [/invalid/i] }
 ];
 
 const matchCategory = (text: string) => {
@@ -115,7 +119,12 @@ export function classifyModels(models: ModelInfo[] = [], { otherLabel = 'Other' 
 
   const populatedGroups = groups.filter((group) => group.items.length > 0);
   if (otherGroup.items.length) {
-    populatedGroups.push(otherGroup);
+    const invalidGroupIndex = populatedGroups.findIndex((group) => group.id === 'invalid');
+    if (invalidGroupIndex === -1) {
+      populatedGroups.push(otherGroup);
+    } else {
+      populatedGroups.splice(invalidGroupIndex, 0, otherGroup);
+    }
   }
 
   return populatedGroups;
