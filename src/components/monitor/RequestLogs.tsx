@@ -106,7 +106,7 @@ export function RequestLogs({ data, loading: parentLoading, providerMap, provide
   }, []);
 
   // 时间范围状态
-  const [timeRange, setTimeRange] = useState<TimeRange>(7);
+  const [timeRange, setTimeRange] = useState<TimeRange>(1);
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
 
   // 日志独立数据状态
