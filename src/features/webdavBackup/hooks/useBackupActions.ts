@@ -223,12 +223,12 @@ export function useBackupActions() {
         }
 
         await applyRestore(payload, scope);
-        showNotification(t('backup.restore_success'), 'success');
+        showNotification(t('backup.restore_success'), 'success', 0);
         return true;
       } catch (err) {
         console.error('[WebDAV Backup] Restore failed:', err);
         const msg = err instanceof Error ? err.message : String(err);
-        showNotification(`${t('backup.restore_failed')}: ${msg}`, 'error');
+        showNotification(`${t('backup.restore_failed')}: ${msg}`, 'error', 0);
         return false;
       } finally {
         setIsRestoring(false);

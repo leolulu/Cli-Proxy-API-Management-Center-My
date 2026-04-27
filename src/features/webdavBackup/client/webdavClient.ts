@@ -16,6 +16,9 @@ interface ApiCallResponse {
   body: string;
 }
 
+const WEBDAV_RESTORE_DOWNLOAD_TIMEOUT_MS = 60 * 1000;
+const WEBDAV_RESTORE_DOWNLOAD_MAX_ATTEMPTS = 3;
+
 function createAuthHeader(username: string, password: string): string {
   const encoded = new TextEncoder().encode(`${username}:${password}`);
   let binary = '';
@@ -56,13 +59,18 @@ async function relay(
   url: string,
   headers: Record<string, string>,
   data?: string,
+  timeout?: number,
 ): Promise<ApiCallResponse> {
-  const resp = await apiClient.post<ApiCallResponse>('/api-call', {
-    method,
-    url,
-    header: headers,
-    data: data ?? '',
-  });
+  const resp = await apiClient.post<ApiCallResponse>(
+    '/api-call',
+    {
+      method,
+      url,
+      header: headers,
+      data: data ?? '',
+    },
+    timeout ? { timeout } : undefined,
+  );
 
   // api-call 总是返回 200，实际状态码在 status_code 字段
   if (resp.status_code >= 400) {
@@ -123,8 +131,27 @@ export const webdavClient = {
   },
 
   async getFile(config: WebdavConnectionConfig, filename: string): Promise<string> {
-    const resp = await relay('GET', buildFileUrl(config, filename), baseHeaders(config));
-    return resp.body;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= WEBDAV_RESTORE_DOWNLOAD_MAX_ATTEMPTS; attempt++) {
+      try {
+        const resp = await relay(
+          'GET',
+          buildFileUrl(config, filename),
+          baseHeaders(config),
+          undefined,
+          WEBDAV_RESTORE_DOWNLOAD_TIMEOUT_MS,
+        );
+        return resp.body;
+      } catch (err) {
+        lastError = err;
+        if (attempt === WEBDAV_RESTORE_DOWNLOAD_MAX_ATTEMPTS) {
+          throw err;
+        }
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   },
 
   async listDirectory(config: WebdavConnectionConfig): Promise<WebdavFileInfo[]> {
